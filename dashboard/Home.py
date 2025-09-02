@@ -26,7 +26,7 @@ def load_page(page_name):
 
 
 with st.sidebar:
-    st.sidebar.title("导航栏")  # 左侧栏标题
+    st.sidebar.title("🧭 导航栏")  # 左侧栏标题
     selected_page = st.radio(
         label="页面选择", 
         options=["主页", "Single Factor Analysis", "factors"],

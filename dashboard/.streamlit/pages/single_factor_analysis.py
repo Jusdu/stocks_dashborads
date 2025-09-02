@@ -19,31 +19,83 @@ from src.factor_eval.get_eval import EVALUATION
 func
 #------------------------------------------------------------------------
 '''
-
-# 1. func - load data
-#--------------------------
-@st.cache_data(ttl=3600)  # 缓存 1 小时
-def load_factor_df(factor_typeI, factor_name):
-    factor_path = rf'.\data\factors\{factor_typeI}\{factor_name}.parquet'
-    factor_df = pd.read_parquet(factor_path)
-    return factor_df
-
-@st.cache_data(ttl=3600)  # 缓存 1 小时
+@st.cache_data()
 def load_data():
     data_path = r'.\data\raw\all.parquet'
     data = pd.read_parquet(data_path)
     return data
 
-@st.cache_data(ttl=3600)
-def load_factor_IC(data, factor_df, ret_nd:List, IC_type:Literal['IC', 'Rank-IC']):
-    EVAL = EVALUATION(data, factor_df)
-    # IC
-    if IC_type.lower().startswith('i'):
-        factor_IC = EVAL.calc_IC(ret_nd, method='pearson')
-    # Rank - IC
-    else:
-        factor_IC = EVAL.calc_IC(ret_nd, method='spearman')
+@st.cache_data()
+def load_factor_df(factor_typeI, factor_name):
+    factor_path = rf'.\data\factors\{factor_typeI}\{factor_name}.parquet'
+    factor_df = pd.read_parquet(factor_path)
+    return factor_df
+
+@st.cache_data()
+def st_load_factor_IC(evaluation, IC_type:Literal['IC', 'Rank-IC']):
+    
+    method = 'pearson' if IC_type.lower().startswith('i') else 'spearman'
+    factor_IC = evaluation.calc_IC(factor_df, method)
     return factor_IC
+
+@st.cache_data()
+def st_load_factor_grouped_ret(evaluation, group_type:Literal['quantile', 'bins'], group_lens):
+    
+    factor_grouped_ret = evaluation.calc_grouped_ret(group_type, group_lens)
+    return factor_grouped_ret
+
+
+# 1. func - load data
+#--------------------------
+class DataLoader:
+    def __init__(
+            self, 
+            factor_typeI: str = None, 
+            factor_name: str = None,
+            ret_nd: List = None,
+            ):
+        """
+        :param factor_typeI: 因子类型一级目录 (例如 'momentum' 或 'value')
+        :param factor_name: 因子文件名 (不带后缀)
+        """
+        self.factor_typeI = factor_typeI
+        self.factor_name = factor_name
+        self.ret_nd = ret_nd
+
+        self.__init_load_factor_data__()
+        # TODO 解决 eval类的缓存
+        # self.__init_load_factor_evaluation__()
+
+    
+    # default data
+    #-------------
+    def __init_load_factor_data__(self):
+        """加载默认数据
+        """
+        self.data = load_data()
+        self.factor_df = load_factor_df(factor_typeI, factor_name)
+
+
+    # # factor evaluation data
+    # #-----------------------
+    # def __init_load_factor_evaluation__(self):
+    #     self.evaluation = EVALUATION(self.data, self.factor_df, self.ret_nd)
+        
+    # def load_factor_IC(self, IC_type):
+
+    #     factor_IC = st_load_factor_IC(self.evaluation, IC_type)
+    #     return factor_IC
+
+
+    
+@st.cache_data
+def st_dataloader():
+    dataloader = DataLoader(
+        factor_typeI = factor_typeI,
+        factor_name = factor_name,
+        ret_nd = [1,5,10,22]
+    )
+    return dataloader
 
 
 # 2. func - plot
@@ -97,16 +149,15 @@ st.sidebar.markdown(
     """
     [factor](#factor)  
     [factor IC](#factor-IC)  
-    [factor distribution](#factor-distribution)  
+    [factor grouped](#factor-grouped)  
     """
 )
-
 
 
 # 1. main - single factor
 #--------------------------
 st.subheader('factor')
-# 1.1 因子选择
+## 1.1 因子选择
 col1, col2, col3,= st.columns(3)
 with col1:  
     factor_typeI_lst = os.listdir(r'data\factors')
@@ -118,16 +169,18 @@ with col2:
 with col3:
     IC_type = st.selectbox("IC type", ['IC', 'Rank-IC'], index=0)
 
-## factor data
-factor_df = load_factor_df(factor_typeI, factor_name)
-data = load_data()
-factor_IC = load_factor_IC(data, factor_df, ret_nd=[1,5,10,22], IC_type=IC_type)
-## other data
-factor_date_lst = factor_df.index.get_level_values(0).unique().strftime('%Y-%m-%d')
+## 1.2 factor data
+dataloader = DataLoader(
+    factor_typeI,
+    factor_name,
+    ret_nd=[1,5,10,22]
+)
+factor_df, data = dataloader.factor_df, dataloader.data
 
-## 1.2 factor_values
+
+## 1.3 factor_values
 with st.expander("区间因子值 - 示例", expanded=False):
-    
+    factor_date_lst = factor_df.index.get_level_values(0).unique().strftime('%Y-%m-%d')
     select_s_date, select_e_date = st.select_slider(
         "_",
         options=factor_date_lst,
@@ -151,12 +204,14 @@ st.text("")  # 空行
 #--------------------------
 ## IC
 st.subheader('factor IC')
+factor_IC = dataloader.load_factor_IC(IC_type=IC_type)
 Line_IC_ret_nd = st_IC_retnd_plot(factor_IC)
 st_pyecharts(Line_IC_ret_nd, height="500px", width="100%")
 
 st.text("")  # 空行
 st.text("")  # 空行
 
-# 3. main - factor distribution
+# 3. main - factor grouped
 #--------------------------
-st.subheader('factor distribution')
+st.subheader('factor grouped')
+# load_factor_grouped_ret()
