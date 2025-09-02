@@ -1,0 +1,6 @@
+# [theme]
+# primaryColor = "#1abc9c"           # 主色
+# backgroundColor = "#f0f8ff"        # 页面主要背景
+# secondaryBackgroundColor = "#f9f9f9" # 组件卡片背景
+# textColor = "#000000"
+# font = "sans serif"

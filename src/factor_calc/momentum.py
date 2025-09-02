@@ -33,5 +33,5 @@ class MOMENTUM:
         if self.is_lags:
             factors = factors.shift(1)
         factors = pd.DataFrame(factors.stack())
-        factors.columns = [f'momentum_lags_{lags}_pct_']
+        factors.columns = [f'momentum_lags_{lags}_pct']
         return factors
