@@ -109,8 +109,15 @@ class GOLDMINE:
 if __name__ == '__main__':
     pass
     
-    # gm = GOLDMINE()
+    gm = GOLDMINE()
+
+    # 加载个股
     # for symbol_type in tqdm(['all', 'main', 'cy', 'kc']):
     #     symbols = gm.get_symbols(symbol_type)
     #     data = gm.get_ohlcv(symbols, start_date='2024-01-01', adj=1, split=int(len(symbols)/300))
-    #     data.to_parquet(rf'./data/{symbol_type}.parquet')
+    #     data.to_parquet(rf'./data/raw/{symbol_type}.parquet')
+
+    # 加载指数
+    index_symbol = 'SHSE.000001'
+    index = gm.get_ohlcv(index_symbol, start_date='2024-01-01', freq='1d', adj=1)
+    index.to_parquet(rf'./data/index/{index_symbol}.parquet')

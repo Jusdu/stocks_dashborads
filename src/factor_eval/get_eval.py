@@ -48,17 +48,17 @@ class EVALUATION:
         forward_return_data.columns = [f'forward_ret_{nd}d' for nd in ret_nd]
         return forward_return_data
 
-    @staticmethod
-    def calc_IC(factor_df, forward_return_data, method:Literal['pearson', 'spearman']='pearson'):
+    def calc_IC(self, method:Literal['pearson', 'spearman']='pearson'):
 
         ## 获取因子值
-        factor_ret_data = pd.concat([factor_df, forward_return_data], axis=1)
+        factor_ret_data = pd.concat([self.factor_df, self.forward_return_data], axis=1)
         factor_IC = factor_ret_data.groupby('date').apply(
             lambda x: x.corr(method=method).iloc[1:, 0]
         ).dropna(how='all')
 
         ## 计算当月因子均值
         monthly_factor_IC = factor_IC.groupby(pd.Grouper(level=0, freq='MS')).mean()
+        monthly_factor_IC.columns = [f'IC_{col.split('forward_')[-1]}' for col in monthly_factor_IC.columns]
         return monthly_factor_IC
     
 

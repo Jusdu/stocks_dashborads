@@ -2,46 +2,44 @@ import streamlit as st
 import importlib.util
 import os
 
-# streamlit run 'D:\Coding\repo\stocks_dashborads\dashboard\Home.py'
-
-
-# 全局参数加载
 st.set_page_config(
     page_title="因子看板",
-    layout="wide",  # ✅ 全局宽屏
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
-
-# 动态加载和执行策略页面
 def load_page(page_name):
-    page_path = os.path.join(r"dashboard\.streamlit\pages", f"{page_name}.py")
+    page_path = os.path.join(r"dashboard/.streamlit/pages", f"{page_name}.py")
     if os.path.exists(page_path):
-        # 使用 importlib 动态加载
         spec = importlib.util.spec_from_file_location(page_name, page_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
     else:
         st.error(f"页面 '{page_name}' 未找到！")
 
+# 所有可选页面
+pages = ["Home Page", "Single Factor Analysis", "factors"]
 
+# 从 URL 读取当前 page 参数 (st.query_params 是一个 dict-like 对象)
+default_page = st.query_params.get("page", "Home Page")
+
+# 侧边栏导航
 with st.sidebar:
-    st.sidebar.title("🧭 导航栏")  # 左侧栏标题
+    st.sidebar.title("🧭 导航栏")
     selected_page = st.radio(
-        label="页面选择", 
-        options=["主页", "Single Factor Analysis", "factors"],
-        label_visibility="collapsed"  # 隐藏标签但不触发警告
+        "页面选择",
+        options=pages,
+        index=pages.index(default_page) if default_page in pages else 0,
+        label_visibility="collapsed"
     )
 
+# 每次切换更新 URL 参数
+st.query_params["page"] = selected_page
 
-# 根据选择的页面输出内容
-if selected_page == "主页":
-    st.title("主页")
-    # st.write("使用左侧导航栏切换页面。")
+# 根据选择加载页面
+if selected_page == "Home Page":
+    load_page("home_page")
 elif selected_page == "Single Factor Analysis":
     load_page("single_factor_analysis")
 elif selected_page == "factors":
     load_page("factors")
-
-
-
