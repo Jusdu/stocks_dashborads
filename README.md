@@ -1,5 +1,11 @@
 # 股票因子看板
 
+## 连接
+```
+1. streamlit run 'dashboard\Home.py' --server.port 8501
+2. ngrok http 8501
+```
+<br>
 
 ## 数据
 > 储存在 `data` 中，可手动加入, 也可通过掘金api获取
