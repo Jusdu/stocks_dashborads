@@ -70,6 +70,9 @@ class DataLoader:
     #-----------------------
     def load_factor_IC(self, IC_type:Literal['IC', 'Rank-IC']):
         return compute_factor_IC(self.data, self.factor_df, self.ret_nd, IC_type)
+    
+    def load_factor_grouped_ret(self, quantile:int=10, bins:int=None):
+        return compute_factor_grouped_ret(self.data, self.factor_df, self.ret_nd, quantile=quantile, bins=bins)
 
 
 @st.cache_data
@@ -77,7 +80,11 @@ def compute_factor_IC(data, factor_df, ret_nd, IC_type: str):
     evaluation = EVALUATION(data, factor_df, ret_nd)
     method = 'pearson' if IC_type.lower().startswith('i') else 'spearman'
     return evaluation.calc_IC(method)
-    
+
+@st.cache_data
+def compute_factor_grouped_ret(data, factor_df, ret_nd, quantile:int=10, bins:int=None):
+    evaluation = EVALUATION(data, factor_df, ret_nd)
+    return evaluation.calc_grouped_ret(quantile, bins)
 
 @st.cache_resource
 def get_loader(factor_typeI:str, factor_name:str, ret_nd:List) -> DataLoader:
@@ -129,6 +136,7 @@ def st_IC_retnd_plot(factor_IC):
         is_smooth=True,
         is_symbol_show=True, # 显示折线上小圆点
         label_opts=opts.LabelOpts(is_show=False),  # 不显示数值
+        linestyle_opts=opts.LineStyleOpts(width=1, opacity=0.6),
         yaxis_index=1,   # 指定右轴
     )
 
@@ -281,4 +289,4 @@ st.text("")  # 空行
 #--------------------------
 st.markdown('<a id="factor-grouped"></a>', unsafe_allow_html=True)
 st.markdown("## 🔹Factor Grouped")
-# load_factor_grouped_ret()
+dataloader.load_factor_grouped_ret(quantile=10, bins=None)

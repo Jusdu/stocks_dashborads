@@ -48,6 +48,7 @@ class EVALUATION:
         forward_return_data.columns = [f'forward_ret_{nd}d' for nd in ret_nd]
         return forward_return_data
 
+
     def calc_IC(self, method:Literal['pearson', 'spearman']='pearson'):
 
         ## 获取因子值
@@ -60,18 +61,20 @@ class EVALUATION:
         monthly_factor_IC = factor_IC.groupby(pd.Grouper(level=0, freq='MS')).mean()
         monthly_factor_IC.columns = [f'IC_{col.split('forward_')[-1]}' for col in monthly_factor_IC.columns]
         return monthly_factor_IC
-    
 
-    def calc_grouped_ret(self, forward_return_data, group_type:Literal['quantile', 'bins'], group_lens:int=10):
+
+    def calc_grouped_ret(self, quantile:int=10, bins:int=None):
         """计算分组收益
         """
-
+        cut = pd.qcut if quantile else pd.cut
+        lens = quantile if quantile else bins
         factor_df = self.factor_df
+
+        factor_df['grouped'] = factor_df.groupby('date')[factor_df.columns[0]].transform(
+            lambda s: cut(s, lens, labels=False, duplicates='drop')
+        )
         print(factor_df)
-        factor_df['']
-
-
-
+        # return factor_df.groupby('grouped').apply(lambda x: x.mean())
 
 
 
