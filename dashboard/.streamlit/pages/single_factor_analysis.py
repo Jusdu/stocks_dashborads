@@ -6,7 +6,7 @@ import os
 import yaml
 import streamlit as st
 from pyecharts import options as opts
-from pyecharts.charts import Line
+from pyecharts.charts import Bar, Line, Kline
 from streamlit_echarts import st_pyecharts
 from pyecharts.commons.utils import JsCode
 
@@ -96,83 +96,202 @@ def get_loader(factor_typeI:str, factor_name:str, ret_nd:List) -> DataLoader:
 
 # 2. func - plot
 #--------------------------
-def st_IC_retnd_plot(factor_IC):
 
-    # factor_cumIC
-    factor_cumIC = factor_IC.iloc[:,-1].cumsum().round(3).astype(str)
+def st_IC_retNd_plot(factor_IC):
+    # ---------------- 计算 cumIC ----------------
+    factor_cumIC = factor_IC.cumsum().round(3).astype(float)
+    factor_cumIC.columns = ['Cum' + col for col in factor_cumIC.columns]
 
-    # main Line
-    line = Line(init_opts=opts.InitOpts(width="100%", height="600px"))
-    line.add_xaxis(factor_IC.index.strftime("%Y-%m-%d").tolist())
+    # ---------------- 主柱状图 ----------------
+    bar = Bar(init_opts=opts.InitOpts(width="100%", height="600px"))
+    bar.add_xaxis(factor_IC.index.strftime("%Y-%m-%d").tolist())
 
     LegendSelected = {}
     cols = factor_IC.columns
     for i, col in enumerate(cols):
-        is_default_selected = False if i < len(cols) - 1 else True  # 前3列默认不选中
+        is_default_selected = False if i < len(cols) - 1 else True
         LegendSelected[col] = is_default_selected
 
-        opacity_val = 0.4 if i < len(cols) - 1 else 1.0  # 前3列透明度0.4
-        line.add_yaxis(
-            series_name=col,#f'IC_{col.split('_')[-1]}',
+        opacity_val = 0.6 if i < len(cols) - 1 else 1.0
+        bar.add_yaxis(
+            series_name=col,
             y_axis=factor_IC[col].round(3).tolist(),
-            is_symbol_show=True,
-            is_smooth=True,
-            label_opts=opts.LabelOpts(is_show=False),  # 不显示数值
-            linestyle_opts=opts.LineStyleOpts(width=2, opacity=opacity_val),
+            label_opts=opts.LabelOpts(is_show=False),
+            itemstyle_opts=opts.ItemStyleOpts(opacity=opacity_val),
+            # bar_width="100%",  # 这里控制柱子宽度，默认是 "60%" 左右
         )
-    
-    # 添加 累计IC 放在右轴
-    line.extend_axis(
+
+    # ---------------- 右轴累计IC折线 ----------------
+    bar.extend_axis(
         yaxis=opts.AxisOpts(
             name="cum_IC",
             type_="value",
             position="right",
+            # split_number=5,
             axisline_opts=opts.AxisLineOpts(),
             axislabel_opts=opts.LabelOpts(),
+            splitline_opts=opts.SplitLineOpts(is_show=False),  # 只保留左边网格线
         )
-    ).add_yaxis(
-        series_name="cum_IC",
-        y_axis=factor_cumIC.values.tolist(),
-        is_smooth=True,
-        is_symbol_show=True, # 显示折线上小圆点
-        label_opts=opts.LabelOpts(is_show=False),  # 不显示数值
-        linestyle_opts=opts.LineStyleOpts(width=1, opacity=0.6),
-        yaxis_index=1,   # 指定右轴
     )
 
+    line = Line()
+    line.add_xaxis(factor_IC.index.strftime("%Y-%m-%d").tolist())
+    for i, col in enumerate(factor_cumIC):
+        is_default_selected = False if i < len(cols) - 1 else True
+        LegendSelected[col] = is_default_selected
 
-    # 全局配置
-    # print(LegendSelected)
-    line.set_global_opts(
-        title_opts=opts.TitleOpts(title="", is_show=False),
+        opacity_val = 0.6 if i < len(cols) - 1 else 1.0
+        line.add_yaxis(
+            series_name=col,
+            y_axis=(factor_cumIC[col]).tolist(),  # 映射后的值
+            is_smooth=True,
+            label_opts=opts.LabelOpts(is_show=False),
+            itemstyle_opts=opts.ItemStyleOpts(opacity=opacity_val),
+            yaxis_index=1  # 指定右轴
+        )
+
+    # ---------------- 组合 ----------------
+    bar.overlap(line)
+    bar.set_series_opts(z=1)
+    bar.set_global_opts(
+        title_opts=opts.TitleOpts(title="因子时序 IC", is_show=True),
         xaxis_opts=opts.AxisOpts(
-            type_="category", 
-            name="", 
-            is_scale=False,
+            type_="category",
             axislabel_opts=opts.LabelOpts(
-                rotate=0,  
-                formatter=JsCode("function (value, index) {return value.substr(0,7);}"),  
+                rotate=0,
+                formatter=JsCode("function (value, index) {return value.substr(0,7);}"),
             ),
         ),
         yaxis_opts=opts.AxisOpts(
-            name="IC", 
-            is_scale=True, 
-            axisline_opts=opts.AxisLineOpts(),
-            axislabel_opts=opts.LabelOpts(),
-            splitline_opts=opts.SplitLineOpts(is_show=True)
+            name="IC",
+            is_scale=True,
+            splitline_opts=opts.SplitLineOpts(is_show=True),
         ),
         tooltip_opts=opts.TooltipOpts(trigger="axis"),
         datazoom_opts=[
-            opts.DataZoomOpts(          # 缩放条
-                range_start=0,          # 从0%
-                range_end=100           # 到100%，即全宽
-            ), opts.DataZoomOpts(type_="inside")],
-        legend_opts=opts.LegendOpts(
-            selected_map=LegendSelected # 改变默认显示的IC折线图
+            opts.DataZoomOpts(range_start=0, range_end=100),
+            opts.DataZoomOpts(type_="inside")
+        ],
+        legend_opts=opts.LegendOpts(selected_map=LegendSelected)
+    )
+
+    return bar
+
+
+
+def st_factor_distribution_plot(factor_distribution):
+
+    desc = factor_distribution.copy()
+    desc = desc[['count', 'min', '25%', '75%', 'max']]
+    # count 转整数
+    desc['count'] = desc['count'].astype(int)
+    # min/25%/50%/75%/max 保留两位小数并转字符串
+    for col in ['min', '25%', '75%', 'max']:
+        desc[col] = desc[col].round(2).astype(str)
+
+
+    # -------------------
+    # 1. X轴
+    x_axis = desc.index.tolist()
+    # print(desc)
+
+    # -------------------
+    # 2. 柱状图 (count)
+    bar = Bar()
+    bar.add_xaxis(x_axis)
+    bar.add_yaxis(
+        "频次个数",
+        desc["count"].tolist(),
+        yaxis_index=0,
+        label_opts=opts.LabelOpts(is_show=False),
+        bar_width="50%",  # 这里控制柱子宽度，默认是 "60%" 左右
+        # color="#87CEEB",
+        itemstyle_opts=opts.ItemStyleOpts(opacity=0.9),
+    )
+
+    # -------------------
+    # 3. 蜡烛图 (分位数)
+    # 格式 [open, close, low, high] => [25%, 75%, min, max]
+    kline_data = []
+    for _, row in desc.iterrows():
+        kline_data.append([
+            row["25%"],  # open
+            row["75%"],  # close
+            row["min"],  # low
+            row["max"],  # high
+        ])
+
+    kline = Kline()
+    kline.add_xaxis(x_axis)
+    kline.add_yaxis(
+        "因子分位线", 
+        kline_data, 
+        yaxis_index=1,
+        bar_width="30%",  # 这里控制柱子宽度，默认是 "60%" 左右
+        # itemstyle_opts=opts.ItemStyleOpts(
+        #     color="#FF98AA",       # 收盘 > 开盘，蜡烛填充色（淡蓝）
+        #     color0="#FF98AA",      # 收盘 <= 开盘，蜡烛填充色（淡蓝）
+        #     border_color="#FF98AA",  # 上影线/下影线颜色
+        #     border_color0="#FF98AA"
+        # )
+        itemstyle_opts=opts.ItemStyleOpts(opacity=0.8),
+    )
+
+
+    # -------------------
+    # 4. 叠加
+    bar.overlap(kline)
+
+    # -------------------
+    # 5. 配置双轴 + 合并
+    bar.extend_axis(
+        yaxis=opts.AxisOpts(
+            name="因子值",
+            type_="value",
+            position="right",
+            splitline_opts=opts.SplitLineOpts(is_show=False),  # 只保留左边网格线
+            # axislabel_opts=opts.LabelOpts(
+            #     formatter="{value}%"  # 右轴刻度后面加 %
+            # ),
         )
     )
-    return line
+    bar.set_global_opts(
+        title_opts=opts.TitleOpts(title="因子分组频次分布"),
+        xaxis_opts=opts.AxisOpts(
+            name="组别", 
+            name_location="middle",
+            name_gap=25,              # 距离轴线的距离，调整上下间距
+            ),
+        yaxis_opts=opts.AxisOpts(name="频次个数", position="left"),
+        tooltip_opts=opts.TooltipOpts(
+            trigger="axis",
+            axis_pointer_type="cross",
+            formatter=JsCode(
+                """
+                function (params) {
+                    let res = '<b>' + '组别:' + params[0].axisValue + '</b><br/>';
+                    for (let i = 0; i < params.length; i++) {
+                        let p = params[i];
+                        if (p.seriesType === 'candlestick') {
+                            res += p.marker + p.seriesName + '<br/>' +
+                                'min: ' + p.data[3] + '<br/>' +
+                                '25%: ' + p.data[1] + '<br/>' +
+                                '75%: ' + p.data[2] + '<br/>' +
+                                'max: ' + p.data[4] + '<br/>';
+                        } else {
+                            res += p.marker + p.seriesName + ': ' + p.data + '<br/>';
+                        }
+                    }
+                    return res;
+                }
+                """
+            )
+        ),
+    )
 
+    # -------------------
+    # 6. 展示
+    st_pyecharts(bar, height='400px')
 
 
 '''
@@ -276,8 +395,10 @@ st.markdown("## 🔹Factor IC")
 col1 = st.columns(9)[0]
 with col1:
     IC_type = st.selectbox("IC type", ['IC', 'Rank-IC'], index=0)
+    st.text("")  # 空行
+    st.text("")  # 空行
 factor_IC = dataloader.load_factor_IC(IC_type=IC_type)
-Line_IC_ret_nd = st_IC_retnd_plot(factor_IC)
+Line_IC_ret_nd = st_IC_retNd_plot(factor_IC)
 st_pyecharts(Line_IC_ret_nd, height="500px", width="100%")
 
 
@@ -285,8 +406,28 @@ st.text("")  # 空行
 st.text("")  # 空行
 st.text("")  # 空行
 
+
+    
+
 # 3. main - factor grouped
 #--------------------------
 st.markdown('<a id="factor-grouped"></a>', unsafe_allow_html=True)
 st.markdown("## 🔹Factor Grouped")
-dataloader.load_factor_grouped_ret(quantile=10, bins=None)
+
+## 3.1 因子频次分布
+col1, col2 = st.columns(9)[:2]
+with col1:
+    grouped_nums = st.number_input(min_value=1, max_value=100, value=10, step=1, format="%d", label="grouped nums", label_visibility='visible')
+with col2:
+    grouped_type = st.selectbox("grouped type", ['quantile', 'bins'], index=0)
+    if grouped_type == 'quantile':
+        params = {'quantile': grouped_nums, 'bins': None}
+    else:
+        params = {'quantile': None, 'bins': grouped_nums}
+st.text("")  # 空行
+st.text("")  # 空行
+factor_distribution = dataloader.load_factor_grouped_ret(**params)
+st_factor_distribution_plot(factor_distribution)
+# st_pyecharts(bar)
+
+## 3.2 因子

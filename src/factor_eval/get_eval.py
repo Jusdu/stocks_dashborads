@@ -59,7 +59,7 @@ class EVALUATION:
 
         ## 计算当月因子均值
         monthly_factor_IC = factor_IC.groupby(pd.Grouper(level=0, freq='MS')).mean()
-        monthly_factor_IC.columns = [f'IC_{col.split('forward_')[-1]}' for col in monthly_factor_IC.columns]
+        monthly_factor_IC.columns = [f'IC_{col.split('_')[-1]}' for col in monthly_factor_IC.columns]
         return monthly_factor_IC
 
 
@@ -68,12 +68,27 @@ class EVALUATION:
         """
         cut = pd.qcut if quantile else pd.cut
         lens = quantile if quantile else bins
-        factor_df = self.factor_df
+        factor_df = self.factor_df.copy()
 
         factor_df['grouped'] = factor_df.groupby('date')[factor_df.columns[0]].transform(
             lambda s: cut(s, lens, labels=False, duplicates='drop')
         )
         print(factor_df)
+
+        # # 因子分组频次 - df
+        # factor_count = factor_df.grouped.value_counts().sort_index()
+        # factor_count.index += 1
+        # factor_count
+
+        # 因子分组分布 - data
+        factor_distribution = factor_df.groupby('grouped').describe()
+        factor_distribution.columns = [col[-1] for col in factor_distribution.columns]
+        factor_distribution.index += 1
+        print(factor_distribution)
+
+
+        return factor_distribution
+        
         # return factor_df.groupby('grouped').apply(lambda x: x.mean())
 
 
