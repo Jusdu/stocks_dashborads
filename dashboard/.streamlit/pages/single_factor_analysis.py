@@ -71,8 +71,8 @@ class DataLoader:
     def load_factor_IC(self, IC_type:Literal['IC', 'Rank-IC']):
         return compute_factor_IC(self.data, self.factor_df, self.ret_nd, IC_type)
     
-    def load_factor_grouped_ret(self, quantile:int=10, bins:int=None):
-        return compute_factor_grouped_ret(self.data, self.factor_df, self.ret_nd, quantile=quantile, bins=bins)
+    def load_factor_grouped(self, quantile:int=10, bins:int=None):
+        return compute_factor_grouped(self.data, self.factor_df, self.ret_nd, quantile=quantile, bins=bins)
 
 
 @st.cache_data
@@ -82,9 +82,9 @@ def compute_factor_IC(data, factor_df, ret_nd, IC_type: str):
     return evaluation.calc_IC(method)
 
 @st.cache_data
-def compute_factor_grouped_ret(data, factor_df, ret_nd, quantile:int=10, bins:int=None):
+def compute_factor_grouped(data, factor_df, ret_nd, quantile:int=10, bins:int=None):
     evaluation = EVALUATION(data, factor_df, ret_nd)
-    return evaluation.calc_grouped_ret(quantile, bins)
+    return evaluation.calc_grouped(quantile, bins)
 
 @st.cache_resource
 def get_loader(factor_typeI:str, factor_name:str, ret_nd:List) -> DataLoader:
@@ -93,10 +93,8 @@ def get_loader(factor_typeI:str, factor_name:str, ret_nd:List) -> DataLoader:
 
 
 
-
 # 2. func - plot
 #--------------------------
-
 def st_IC_retNd_plot(factor_IC):
     # ---------------- 计算 cumIC ----------------
     factor_cumIC = factor_IC.cumsum().round(3).astype(float)
@@ -179,9 +177,9 @@ def st_IC_retNd_plot(factor_IC):
 
 
 
-def st_factor_distribution_plot(factor_distribution):
+def st_factor_describe_plot(factor_describe):
 
-    desc = factor_distribution.copy()
+    desc = factor_describe.copy()
     desc = desc[['count', 'min', '25%', '75%', 'max']]
     # count 转整数
     desc['count'] = desc['count'].astype(int)
@@ -224,7 +222,7 @@ def st_factor_distribution_plot(factor_distribution):
     kline = Kline()
     kline.add_xaxis(x_axis)
     kline.add_yaxis(
-        "因子分位线", 
+        "因子值", 
         kline_data, 
         yaxis_index=1,
         bar_width="30%",  # 这里控制柱子宽度，默认是 "60%" 左右
@@ -294,6 +292,11 @@ def st_factor_distribution_plot(factor_distribution):
     st_pyecharts(bar, height='400px')
 
 
+def st_factor_grouped_cumret_plot(factor_distribution):
+    """因子分组累计收益率"""
+
+
+
 '''
 #------------------------------------------------------------------------
 main
@@ -324,21 +327,32 @@ st.sidebar.markdown(
 st.markdown('<a id="factor"></a>', unsafe_allow_html=True)
 st.markdown("## 🔹Factor")
 ## 1.1 因子选择
-col1, col2 = st.columns([2,2,1,1,1,1,1,1,1,1,1])[0:2]
+cols = st.columns([1,1,1,2])
+col1, col2, _, col3 = cols
+# col1, col2, col3, col4 = st.columns([2,2,2,2,1,1,1,1,1,1,1])[:4]
 with col1:  
     factor_typeI_lst = os.listdir(r'data\factors')
-    factor_typeI = st.selectbox("因子大类", factor_typeI_lst, index=0)  # 默认第一个板块
+    factor_typeI = st.selectbox("因子大类", factor_typeI_lst, index=1)  # 默认 momentum
     factor_typeI_path = os.path.join(r'data\factors', factor_typeI)
 with col2:
     factor_name_lst = [factor_name.split('.')[0] for factor_name in os.listdir(factor_typeI_path)]
     factor_name = st.selectbox("因子", factor_name_lst, index=0)
+with col3:
+    g_date_lst = pd.date_range(start='2024-01-01', end='today', freq='1d').strftime('%Y-%m-%d')
+    g_start_date, g_end_date = st.select_slider(
+        "因子指定日期",
+        options=g_date_lst,
+        value=(g_date_lst[0], g_date_lst[-1]),
+        # label_visibility='collapsed'
+    )
+
 dataloader = get_loader(
     factor_typeI, 
     factor_name, 
     ret_nd=[1,5,10,22]
 )
-factor_df, data = dataloader.factor_df, dataloader.data
-
+factor_df, data = dataloader.factor_df.loc[g_start_date:g_end_date], dataloader.data.loc[g_start_date:g_end_date]
+print(factor_df)
 
 ## 1.2 因子描述
 factor_desc = dataloader.factor_desc
@@ -368,7 +382,7 @@ with st.expander("区间因子值 - 示例", expanded=False):
     select_s_date, select_e_date = st.select_slider(
         "_",
         options=factor_date_lst,
-        value=(factor_date_lst[-16], factor_date_lst[-1]),  # 默认选最后一天
+        value=(factor_date_lst[-14], factor_date_lst[-1]),  # 默认选最后一天
         label_visibility='collapsed'
     )
     factor_df_str = factor_df.round(4).astype(str)
@@ -397,7 +411,7 @@ with col1:
     IC_type = st.selectbox("IC type", ['IC', 'Rank-IC'], index=0)
     st.text("")  # 空行
     st.text("")  # 空行
-factor_IC = dataloader.load_factor_IC(IC_type=IC_type)
+factor_IC = dataloader.load_factor_IC(IC_type=IC_type).loc[g_start_date:g_end_date]
 Line_IC_ret_nd = st_IC_retNd_plot(factor_IC)
 st_pyecharts(Line_IC_ret_nd, height="500px", width="100%")
 
@@ -426,8 +440,71 @@ with col2:
         params = {'quantile': None, 'bins': grouped_nums}
 st.text("")  # 空行
 st.text("")  # 空行
-factor_distribution = dataloader.load_factor_grouped_ret(**params)
-st_factor_distribution_plot(factor_distribution)
-# st_pyecharts(bar)
+factor_describe, factor_grouped_forward_ret = dataloader.load_factor_grouped(**params)
+st_factor_describe_plot(factor_describe)
 
-## 3.2 因子
+st.text("")  # 空行
+st.text("")  # 空行
+
+def st_factor_grouped_forward_ret_plot(series:pd.Series):
+    from matplotlib import cm, colors
+    line = Line()
+    line.add_xaxis(series.index.strftime("%Y-%m-%d").tolist())
+
+    cols = series.columns
+    n = len(cols)
+    color_list = [colors.to_hex(cm.coolwarm(i/(n-1))) for i in range(n)]
+    for i, col in enumerate(cols):
+        opacity_val = 1.0 if i in [0, len(cols) - 1] else 0.6
+        line.add_yaxis(
+            series_name=col,
+            y_axis=series[col].tolist(),
+            is_smooth=True,          # 平滑曲线
+            symbol="none",           # 不显示点
+            linestyle_opts=opts.LineStyleOpts(width=2),  # 加粗线条
+            itemstyle_opts=opts.ItemStyleOpts(opacity=opacity_val, color=color_list[i]),
+        )
+
+    # line.set_global_opts(
+    #     title_opts=opts.TitleOpts(title="不同组别的时间序列"),
+    #     xaxis_opts=opts.AxisOpts(type_="category"),
+    #     yaxis_opts=opts.AxisOpts(type_="value"),
+    #     tooltip_opts=opts.TooltipOpts(trigger="axis"),
+    #     legend_opts=opts.LegendOpts(
+    #         is_show=True,        # 显示图例
+    #     )
+    # )
+    line.set_global_opts(
+        title_opts=opts.TitleOpts(title="因子分组累计收益率", is_show=True),
+        xaxis_opts=opts.AxisOpts(
+            type_="category",
+            axislabel_opts=opts.LabelOpts(
+                rotate=0,
+                formatter=JsCode("function (value, index) {return value.substr(0,7);}"),
+            ),
+        ),
+        yaxis_opts=opts.AxisOpts(
+            name="IC",
+            is_scale=True,
+            splitline_opts=opts.SplitLineOpts(is_show=True),
+        ),
+        tooltip_opts=opts.TooltipOpts(trigger="axis"),
+        datazoom_opts=[
+            opts.DataZoomOpts(range_start=0, range_end=100),
+            opts.DataZoomOpts(type_="inside")
+        ],
+    )
+
+    # 在 streamlit 中展示
+    st_pyecharts(line, height='600px')
+
+## 3.2 因子分组累计收益率
+col1 = st.columns(9)[0]
+with col1:
+    selected_nd = st.selectbox("ret nd", factor_grouped_forward_ret.columns[:-1], index=0)
+ret_series = factor_grouped_forward_ret[selected_nd].unstack().T.iloc[::int(selected_nd[:-1])].dropna()
+# print(ret_series)
+cumRet_series = (ret_series + 1).cumprod().round(2).astype(str)
+cumRet_series.columns = cumRet_series.columns.astype(int).astype(str)
+st_factor_grouped_forward_ret_plot(cumRet_series)
+

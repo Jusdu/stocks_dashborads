@@ -44,7 +44,7 @@ class EVALUATION:
                 .stack()
             )
             return_data_lst.append(forward_return_data)
-        forward_return_data = pd.concat(return_data_lst, axis=1)
+        forward_return_data = pd.concat(return_data_lst, axis=1).sort_index()
         forward_return_data.columns = [f'forward_ret_{nd}d' for nd in ret_nd]
         return forward_return_data
 
@@ -63,7 +63,7 @@ class EVALUATION:
         return monthly_factor_IC
 
 
-    def calc_grouped_ret(self, quantile:int=10, bins:int=None):
+    def calc_grouped(self, quantile:int=10, bins:int=None):
         """计算分组收益
         """
         cut = pd.qcut if quantile else pd.cut
@@ -73,24 +73,26 @@ class EVALUATION:
         factor_df['grouped'] = factor_df.groupby('date')[factor_df.columns[0]].transform(
             lambda s: cut(s, lens, labels=False, duplicates='drop')
         )
-        print(factor_df)
-
-        # # 因子分组频次 - df
-        # factor_count = factor_df.grouped.value_counts().sort_index()
-        # factor_count.index += 1
-        # factor_count
+        ## 组号从 1 开始
+        factor_df['grouped'] += 1
 
         # 因子分组分布 - data
-        factor_distribution = factor_df.groupby('grouped').describe()
-        factor_distribution.columns = [col[-1] for col in factor_distribution.columns]
-        factor_distribution.index += 1
-        print(factor_distribution)
+        factor_describe = factor_df.groupby('grouped').describe()
+        factor_describe.columns = [col[-1] for col in factor_describe.columns]
+
+        # 因子分组收益率
+        forward_ret_data = self.forward_return_data.copy()
+        forward_ret_data.columns = [f'{col.split('_')[-1]}' for col in forward_ret_data.columns]
+        factor_grouped_forward_ret = pd.concat(
+            [forward_ret_data, factor_df['grouped']], axis=1
+        ).dropna(how='all')
+        factor_grouped_forward_ret = factor_grouped_forward_ret.groupby(
+            ['grouped', factor_grouped_forward_ret.index.get_level_values(0)]
+        ).mean()
 
 
-        return factor_distribution
+        return factor_describe, factor_grouped_forward_ret
         
-        # return factor_df.groupby('grouped').apply(lambda x: x.mean())
-
 
 
 if __name__ == '__main__':

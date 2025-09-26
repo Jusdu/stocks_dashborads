@@ -29,18 +29,25 @@ class FACTORS:
 
     def all_to_save(self):
 
-        # # momentum
+        # momentum
+        #-----------------------------
         # for i in [14, 28]:
-        #     factor_lags_pct_n_df = self.momentum.lags_pct_(i)
-        #     self.to_save(factor_lags_pct_n_df, 'momentum', f'lags_pct_{i}.parquet')
+            # factor_lags_pct_n_df = self.momentum.lags_pct_(i)
+            # self.to_save(factor_lags_pct_n_df, 'momentum', f'lags_pct_{i}.parquet')
+
+        i = 14
+        factor_N_slope = self.momentum.N_slope(i)
+        self.to_save(factor_N_slope, 'momentum', f'slope_{i}.parquet')
+        # print(factor_N_slope)
 
         # # emotion
+        #-----------------------------
         # for i in [12, 24]:
         #     psy_n_df = self.emotion.psy_n(i)
         #     self.to_save(psy_n_df, 'emotion', f'psy_{i}.parquet')
 
-        upDownCount = self.emotion.upDownCount_n()
-        self.to_save(upDownCount, 'emotion', f'upDownCount.parquet')
+        # upDownCount = self.emotion.upDownCount_n()
+        # self.to_save(upDownCount, 'emotion', f'upDownCount.parquet')
 
         # volatility
         # for i in [12, 24]:
