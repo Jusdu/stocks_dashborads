@@ -32,7 +32,7 @@ class EVALUATION:
         """计算未来收益率
         """
         ## params init
-        ret_nd = self.ret_nd if self.ret_nd else [1,5,10]
+        ret_nd = self.ret_nd if self.ret_nd else [1,5,10,22]
 
         return_data_lst = []
         for nd in ret_nd:

@@ -17,20 +17,16 @@ func
 
 # 1. func - load data
 #--------------------------
-class DataLoader:
-    def __init__(self):
-        pass
-
-    def load_index_data(self, index_name:str):
-        """加载指数数据
-        """
-        index_data = pd.read_parquet(rf'data\index\{index_name}.parquet')
-        return index_data
-
-
 @st.cache_resource
-def get_loader() -> DataLoader:
-    return DataLoader()
+def load_index_data(index_name:str):
+    """加载指数数据
+    """
+    index_data = pd.read_parquet(rf'data\index\{index_name}.parquet')
+    return index_data
+
+
+
+
 
 
 
@@ -101,7 +97,6 @@ with col1:
     index_file_lst = os.listdir(r'data\index')
     index_lst = [index_file.split('.')[0] for index_file in index_file_lst]
     select_index_name = st.selectbox("指数列表", index_lst, index=index_lst.index('上证指数'))  # 默认第一个指数
-dataloader = get_loader()
-index_data = dataloader.load_index_data(select_index_name)
+index_data = load_index_data(select_index_name)
 kline = st_index_plot_01(index_data)
 st_pyecharts(kline, height="500px")

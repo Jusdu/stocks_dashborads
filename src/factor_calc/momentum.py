@@ -15,15 +15,15 @@ from typing import *
 
 class MOMENTUM:
     '''动量因子类'''
-    def __init__(self, data, is_lags:bool=False):
+    def __init__(self, data, is_real:bool=False):
         """_summary_
 
         Args:
             data (_type_): _description_
-            is_lags (bool, optional): 因子数据是否延期 1 日.
+            is_real (bool, optional): 因子数据是否延期 1 日.
         """
         self.data = data
-        self.is_real = is_lags
+        self.is_real = is_real
 
 
     def lags_pct_(self, lags:int=14):

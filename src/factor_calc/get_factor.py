@@ -18,7 +18,7 @@ class FACTORS:
     
     def __init__(self, data_ohlcv):
         self.save_path = r'.\data\factors'
-        self.momentum = MOMENTUM(data_ohlcv, is_lags=False)
+        self.momentum = MOMENTUM(data_ohlcv, is_real=True)
         self.emotion = EMOTION(data_ohlcv, is_lags=False)
         self.volatility = VOLATILITY(data_ohlcv, is_lags=False)
 
@@ -38,6 +38,9 @@ class FACTORS:
         i = 14
         factor_N_slope = self.momentum.N_slope(i)
         self.to_save(factor_N_slope, 'momentum', f'slope_{i}.parquet')
+
+        factor_N_slope_abs = factor_N_slope.abs()
+        self.to_save(factor_N_slope_abs, 'momentum', f'slope_{i}_abs.parquet')
         # print(factor_N_slope)
 
         # # emotion

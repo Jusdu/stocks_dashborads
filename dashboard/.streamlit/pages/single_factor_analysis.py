@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from typing import *
+from matplotlib import cm, colors
+from datetime import datetime, timedelta
 
 import os
 import yaml
@@ -22,73 +24,43 @@ func
 #------------------------------------------------------------------------
 '''
 
-
 # 1. func - load data
 #--------------------------
-class DataLoader:
-    def __init__(
-            self, 
-            factor_typeI: str = None, 
-            factor_name: str = None,
-            ret_nd: List = None,
-            ):
-        """
-        :param factor_typeI: 因子类型一级目录 (例如 'momentum' 或 'value')
-        :param factor_name: 因子文件名 (不带后缀)
-        """
-        self.factor_typeI = factor_typeI
-        self.factor_name = factor_name
-        self.ret_nd = ret_nd
-        self.__init_load_factor_data__()
 
-
-    # default data
-    #-------------
-    def __init_load_factor_data__(self):
-        """加载默认数据
-        """
-        self.data = self.load_data()
-        self.factor_df = self.load_factor_df()
-        self.factor_desc = self.load_factor_desc()
-    
-    def load_data(self):
-        data_path = r'.\data\raw\all.parquet'
-        data = pd.read_parquet(data_path)
-        return data
-    
-    def load_factor_df(self):
-        factor_path = rf'.\data\factors\{self.factor_typeI}\{self.factor_name}.parquet'
-        factor_df = pd.read_parquet(factor_path)
-        return factor_df
-    
-    def load_factor_desc(self):
-        with open(rf".\data\factor_desc.yaml", "r", encoding="utf-8") as f:
-            desc_dict = yaml.safe_load(f)
-        return desc_dict.get(self.factor_typeI, {}).get(self.factor_name, {})
-
-    # factor evaluation data
-    #-----------------------
-    def load_factor_IC(self, IC_type:Literal['IC', 'Rank-IC']):
-        return compute_factor_IC(self.data, self.factor_df, self.ret_nd, IC_type)
-    
-    def load_factor_grouped(self, quantile:int=10, bins:int=None):
-        return compute_factor_grouped(self.data, self.factor_df, self.ret_nd, quantile=quantile, bins=bins)
-
+## default data
+#----------------
+@st.cache_data
+def load_data():
+    data_path = r'.\data\raw\all.parquet'
+    data = pd.read_parquet(data_path)
+    return data
 
 @st.cache_data
-def compute_factor_IC(data, factor_df, ret_nd, IC_type: str):
+def load_factor_df(factor_typeI, factor_name):
+    factor_path = rf'.\data\factors\{factor_typeI}\{factor_name}.parquet'
+    factor_df = pd.read_parquet(factor_path)
+    return factor_df
+
+@st.cache_data
+def load_factor_desc(factor_typeI, factor_name):
+    with open(rf".\data\factor_desc.yaml", "r", encoding="utf-8") as f:
+        desc_dict = yaml.safe_load(f)
+    return desc_dict.get(factor_typeI, {}).get(factor_name, {})
+
+
+# evaluation data
+#----------------
+@st.cache_data
+def compute_factor_IC(data, factor_df, ret_nd, IC_type:Literal['IC', 'Rank-IC']):
     evaluation = EVALUATION(data, factor_df, ret_nd)
     method = 'pearson' if IC_type.lower().startswith('i') else 'spearman'
-    return evaluation.calc_IC(method)
+    monthly_factor_IC = evaluation.calc_IC(method)
+    return monthly_factor_IC
 
 @st.cache_data
 def compute_factor_grouped(data, factor_df, ret_nd, quantile:int=10, bins:int=None):
     evaluation = EVALUATION(data, factor_df, ret_nd)
     return evaluation.calc_grouped(quantile, bins)
-
-@st.cache_resource
-def get_loader(factor_typeI:str, factor_name:str, ret_nd:List) -> DataLoader:
-    return DataLoader(factor_typeI, factor_name, ret_nd)
 
 
 
@@ -172,8 +144,8 @@ def st_IC_retNd_plot(factor_IC):
         ],
         legend_opts=opts.LegendOpts(selected_map=LegendSelected)
     )
-
-    return bar
+    st_pyecharts(bar, height="500px", width="100%")
+    return
 
 
 
@@ -292,9 +264,70 @@ def st_factor_describe_plot(factor_describe):
     st_pyecharts(bar, height='400px')
 
 
-def st_factor_grouped_cumret_plot(factor_distribution):
-    """因子分组累计收益率"""
 
+def st_factor_grouped_forward_ret_plot(series:pd.Series):
+    """因子分组累计收益率"""
+    
+    line = Line()
+    line.add_xaxis(series.index.strftime("%Y-%m-%d").tolist())
+
+    cols = series.columns[:-1]
+    n = len(cols)
+    color_list = [colors.to_hex(cm.coolwarm(i/(n-1))) for i in range(n)]
+    for i, col in enumerate(cols):
+        opacity_val = 1.0 if i in [0, len(cols)-1] else 0.4
+        line.add_yaxis(
+            series_name=col,
+            y_axis=series[col].tolist(),
+            is_smooth=True,
+            symbol="none",
+            linestyle_opts=opts.LineStyleOpts(
+                width=1.5, opacity=opacity_val, color=color_list[i]   # 控制线
+            ),
+            itemstyle_opts=opts.ItemStyleOpts(
+                color=color_list[i], opacity=opacity_val            # 控制图例
+            ),
+        )
+    ## 对冲曲线
+    hedged_col = series.columns[-1]
+    line.add_yaxis(
+        series_name=hedged_col,
+        y_axis=series[hedged_col].tolist(),
+        is_smooth=True,
+        symbol="none",
+        linestyle_opts=opts.LineStyleOpts(
+            width=1.5, 
+            color='black',
+            type_="dashed"   # 也可以是 "dotted", "solid"
+        ),
+        itemstyle_opts=opts.ItemStyleOpts(
+            color='black'            # 控制图例
+        ),
+    )
+
+    line.set_global_opts(
+        title_opts=opts.TitleOpts(title="因子分组累计收益率", is_show=True),
+        xaxis_opts=opts.AxisOpts(
+            type_="category",
+            axislabel_opts=opts.LabelOpts(
+                rotate=0,
+                formatter=JsCode("function (value, index) {return value.substr(0,7);}"),
+            ),
+        ),
+        yaxis_opts=opts.AxisOpts(
+            name="累计净值",
+            is_scale=True,
+            splitline_opts=opts.SplitLineOpts(is_show=True),
+        ),
+        tooltip_opts=opts.TooltipOpts(trigger="axis"),
+        datazoom_opts=[
+            opts.DataZoomOpts(range_start=0, range_end=100),
+            opts.DataZoomOpts(type_="inside")
+        ],
+    )
+
+    # 在 streamlit 中展示
+    st_pyecharts(line, height='600px')
 
 
 '''
@@ -320,7 +353,6 @@ st.sidebar.markdown(
 )
 
 
-
 # 1. main - single factor
 #--------------------------
 # 添加加锚点 id
@@ -330,13 +362,16 @@ st.markdown("## 🔹Factor")
 cols = st.columns([1,1,1,2])
 col1, col2, _, col3 = cols
 # col1, col2, col3, col4 = st.columns([2,2,2,2,1,1,1,1,1,1,1])[:4]
+### 因子大类
 with col1:  
     factor_typeI_lst = os.listdir(r'data\factors')
     factor_typeI = st.selectbox("因子大类", factor_typeI_lst, index=1)  # 默认 momentum
     factor_typeI_path = os.path.join(r'data\factors', factor_typeI)
+### 因子名
 with col2:
     factor_name_lst = [factor_name.split('.')[0] for factor_name in os.listdir(factor_typeI_path)]
     factor_name = st.selectbox("因子", factor_name_lst, index=0)
+### 因子日期
 with col3:
     g_date_lst = pd.date_range(start='2024-01-01', end='today', freq='1d').strftime('%Y-%m-%d')
     g_start_date, g_end_date = st.select_slider(
@@ -346,16 +381,13 @@ with col3:
         # label_visibility='collapsed'
     )
 
-dataloader = get_loader(
-    factor_typeI, 
-    factor_name, 
-    ret_nd=[1,5,10,22]
-)
-factor_df, data = dataloader.factor_df.loc[g_start_date:g_end_date], dataloader.data.loc[g_start_date:g_end_date]
-print(factor_df)
+## 1.2 获取 default数据
+data = load_data().loc[g_start_date:g_end_date]
+factor_df = load_factor_df(factor_typeI, factor_name).loc[g_start_date:g_end_date]
+factor_desc = load_factor_desc(factor_typeI, factor_name)
 
-## 1.2 因子描述
-factor_desc = dataloader.factor_desc
+
+## 1.3 因子描述
 if factor_desc:
     st.markdown(f"#### {factor_desc.get('name', factor_name)}")
     st.write("**类别**：", factor_desc.get('category', '暂无说明'))
@@ -376,7 +408,7 @@ else:
 st.text("")  # 空行
 
 
-## 1.3 factor_values
+## 1.4 因子值
 with st.expander("区间因子值 - 示例", expanded=False):
     factor_date_lst = factor_df.index.get_level_values(0).unique().strftime('%Y-%m-%d')
     select_s_date, select_e_date = st.select_slider(
@@ -396,25 +428,27 @@ with st.expander("区间因子值 - 示例", expanded=False):
 
 st.text("")  # 空行
 st.text("")  # 空行
-st.text("")  # 空行
-# st.markdown('<hr style="border:2px solid #1abc9c">', unsafe_allow_html=True)
-# st.markdown('<hr style="width:50%; border:0.5px solid #808080;">', unsafe_allow_html=True)
-# st.markdown('<hr style="width:50%; border:0.1px solid #1abc9c; margin-left:auto; margin-right:auto;">', unsafe_allow_html=True)
+st.text("")  # 空行unsafe_allow_html=True)
 
 # 2. main - factor IC
 #--------------------------
 ## IC
 st.markdown('<a id="factor-ic"></a>', unsafe_allow_html=True)
 st.markdown("## 🔹Factor IC")
-col1 = st.columns(9)[0]
+col1, col2 = st.columns(9)[:2]
 with col1:
     IC_type = st.selectbox("IC type", ['IC', 'Rank-IC'], index=0)
+with col2:
+    default_nd = [1, 5, 10]
+    add_ret_nd = st.number_input("add_ret_nd", min_value=1, max_value=22, step=1, value=22)
+    if add_ret_nd in default_nd:
+        pass
+    else:
+        default_nd.append(add_ret_nd)
     st.text("")  # 空行
     st.text("")  # 空行
-factor_IC = dataloader.load_factor_IC(IC_type=IC_type).loc[g_start_date:g_end_date]
-Line_IC_ret_nd = st_IC_retNd_plot(factor_IC)
-st_pyecharts(Line_IC_ret_nd, height="500px", width="100%")
-
+factor_IC = compute_factor_IC(data, factor_df, default_nd, IC_type).loc[g_start_date:g_end_date]
+st_IC_retNd_plot(factor_IC)
 
 st.text("")  # 空行
 st.text("")  # 空行
@@ -440,71 +474,38 @@ with col2:
         params = {'quantile': None, 'bins': grouped_nums}
 st.text("")  # 空行
 st.text("")  # 空行
-factor_describe, factor_grouped_forward_ret = dataloader.load_factor_grouped(**params)
+factor_describe, factor_grouped_forward_ret = compute_factor_grouped(data, factor_df, default_nd, **params)
+# factor_describe, factor_grouped_forward_ret = dataloader.load_factor_grouped(**params)
 st_factor_describe_plot(factor_describe)
 
 st.text("")  # 空行
 st.text("")  # 空行
 
-def st_factor_grouped_forward_ret_plot(series:pd.Series):
-    from matplotlib import cm, colors
-    line = Line()
-    line.add_xaxis(series.index.strftime("%Y-%m-%d").tolist())
-
-    cols = series.columns
-    n = len(cols)
-    color_list = [colors.to_hex(cm.coolwarm(i/(n-1))) for i in range(n)]
-    for i, col in enumerate(cols):
-        opacity_val = 1.0 if i in [0, len(cols) - 1] else 0.6
-        line.add_yaxis(
-            series_name=col,
-            y_axis=series[col].tolist(),
-            is_smooth=True,          # 平滑曲线
-            symbol="none",           # 不显示点
-            linestyle_opts=opts.LineStyleOpts(width=2),  # 加粗线条
-            itemstyle_opts=opts.ItemStyleOpts(opacity=opacity_val, color=color_list[i]),
-        )
-
-    # line.set_global_opts(
-    #     title_opts=opts.TitleOpts(title="不同组别的时间序列"),
-    #     xaxis_opts=opts.AxisOpts(type_="category"),
-    #     yaxis_opts=opts.AxisOpts(type_="value"),
-    #     tooltip_opts=opts.TooltipOpts(trigger="axis"),
-    #     legend_opts=opts.LegendOpts(
-    #         is_show=True,        # 显示图例
-    #     )
-    # )
-    line.set_global_opts(
-        title_opts=opts.TitleOpts(title="因子分组累计收益率", is_show=True),
-        xaxis_opts=opts.AxisOpts(
-            type_="category",
-            axislabel_opts=opts.LabelOpts(
-                rotate=0,
-                formatter=JsCode("function (value, index) {return value.substr(0,7);}"),
-            ),
-        ),
-        yaxis_opts=opts.AxisOpts(
-            name="IC",
-            is_scale=True,
-            splitline_opts=opts.SplitLineOpts(is_show=True),
-        ),
-        tooltip_opts=opts.TooltipOpts(trigger="axis"),
-        datazoom_opts=[
-            opts.DataZoomOpts(range_start=0, range_end=100),
-            opts.DataZoomOpts(type_="inside")
-        ],
-    )
-
-    # 在 streamlit 中展示
-    st_pyecharts(line, height='600px')
 
 ## 3.2 因子分组累计收益率
-col1 = st.columns(9)[0]
+col1, col2 = st.columns(9)[:2]
 with col1:
-    selected_nd = st.selectbox("ret nd", factor_grouped_forward_ret.columns[:-1], index=0)
+    selected_nd = st.selectbox("ret nd", factor_grouped_forward_ret.columns, index=0)
+with col2:
+    LS_direction = st.selectbox("hedged direction", ['L-S', 'S-L'], index=0)
 ret_series = factor_grouped_forward_ret[selected_nd].unstack().T.iloc[::int(selected_nd[:-1])].dropna()
-# print(ret_series)
-cumRet_series = (ret_series + 1).cumprod().round(2).astype(str)
+### 增加第 0 行
+back_date = ret_series.index[0] - timedelta(days=int(selected_nd[:-1]))
+ret_series.loc[back_date] = 0
+ret_series = ret_series.sort_index()
+
+### 增加 10 - 1 分组
+cumRet_series = (ret_series + 1).cumprod()
 cumRet_series.columns = cumRet_series.columns.astype(int).astype(str)
+if LS_direction == 'L-S':
+    cumRet_series[f'{cumRet_series.columns[-1]} - {cumRet_series.columns[0]}'] = 1 + (
+        cumRet_series.iloc[:,-1] * 0.5 - cumRet_series.iloc[:,0] * 0.5
+    )
+else:
+    cumRet_series[f'{cumRet_series.columns[0]} - {cumRet_series.columns[-1]}'] = 1 + (
+        cumRet_series.iloc[:,0] * 0.5 - cumRet_series.iloc[:,-1] * 0.5
+    )
+print(cumRet_series)
+cumRet_series = cumRet_series.round(2).astype(str)
 st_factor_grouped_forward_ret_plot(cumRet_series)
 

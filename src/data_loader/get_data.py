@@ -111,7 +111,7 @@ if __name__ == '__main__':
     
     gm = GOLDMINE()
 
-    # 加载个股
+    # # 加载个股
     # for symbol_type in tqdm(['all', 'main', 'cy', 'kc']):
     #     symbols = gm.get_symbols(symbol_type)
     #     data = gm.get_ohlcv(symbols, start_date='2024-01-01', adj=1, split=int(len(symbols)/300))
@@ -119,5 +119,6 @@ if __name__ == '__main__':
 
     # 加载指数
     index_symbol = 'SHSE.000001'
+    index_name = '上证指数'
     index = gm.get_ohlcv(index_symbol, start_date='2024-01-01', freq='1d', adj=1)
-    index.to_parquet(rf'./data/index/{index_symbol}.parquet')
+    index.to_parquet(rf'./data/index/{index_name}.parquet')
