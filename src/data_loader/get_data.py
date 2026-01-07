@@ -70,13 +70,13 @@ class GOLDMINE:
     
 
     def get_ohlcv(
-            self, 
-            symbol_list:list | str = None,
-            start_date:str = '2025-01-01',
-            end_date:str = None,
-            split:int = 1,
-            freq:str = '1d',
-            adj:int = 1
+        self, 
+        symbol_list:list | str = None,
+        start_date:str = '2025-01-01',
+        end_date:str = None,
+        split:int = 1,
+        freq:str = '1d',
+        adj:int = 1
     ) -> pd.DataFrame:
         
         if not symbol_list: 
@@ -107,15 +107,14 @@ class GOLDMINE:
 
 
 if __name__ == '__main__':
-    pass
     
     gm = GOLDMINE()
 
-    # # 加载个股
-    # for symbol_type in tqdm(['all', 'main', 'cy', 'kc']):
-    #     symbols = gm.get_symbols(symbol_type)
-    #     data = gm.get_ohlcv(symbols, start_date='2024-01-01', adj=1, split=int(len(symbols)/300))
-    #     data.to_parquet(rf'./data/raw/{symbol_type}.parquet')
+    # 加载个股
+    for symbol_type in tqdm(['all', 'main', 'cy', 'kc']):
+        symbols = gm.get_symbols(symbol_type)
+        data = gm.get_ohlcv(symbols, start_date='2024-01-01', adj=1, split=int(len(symbols)/300))
+        data.to_parquet(rf'./data/raw/{symbol_type}.parquet')
 
     # 加载指数
     index_symbol = 'SHSE.000001'

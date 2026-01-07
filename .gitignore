@@ -1,4 +1,5 @@
 /.env
 /config.toml
+*.parquet
 .parquet
 # .gitignore

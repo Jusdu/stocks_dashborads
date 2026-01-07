@@ -26,16 +26,6 @@ class MOMENTUM:
         self.is_real = is_real
 
 
-    def lags_pct_(self, lags:int=14):
-        '''前N日的收益率'''
-        factors = self.data.close.unstack()
-        factors = factors.pct_change(lags, fill_method=None)
-        if self.is_real:
-            factors = factors.shift(1)
-        factors = pd.DataFrame(factors.stack())
-        factors.columns = [f'momentum_lags_{lags}_pct']
-        return factors
-    
 
     def N_slope(self, n:int=14):
         """前 N 日的斜率"""

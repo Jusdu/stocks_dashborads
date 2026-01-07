@@ -12,6 +12,7 @@ import pandas as pd
 from src.factor_calc.momentum import MOMENTUM
 from src.factor_calc.emotion import EMOTION
 from src.factor_calc.volatility import VOLATILITY
+from src.factor_calc.reversal import REVERSAL
 
 
 class FACTORS:
@@ -19,6 +20,7 @@ class FACTORS:
     def __init__(self, data_ohlcv):
         self.save_path = r'.\data\factors'
         self.momentum = MOMENTUM(data_ohlcv, is_real=True)
+        self.reversal = REVERSAL(data_ohlcv, is_real=True)
         self.emotion = EMOTION(data_ohlcv, is_lags=False)
         self.volatility = VOLATILITY(data_ohlcv, is_lags=False)
 
@@ -29,37 +31,48 @@ class FACTORS:
 
     def all_to_save(self):
 
-        # momentum
+        # 1. momentum
         #-----------------------------
-        # for i in [14, 28]:
-            # factor_lags_pct_n_df = self.momentum.lags_pct_(i)
-            # self.to_save(factor_lags_pct_n_df, 'momentum', f'lags_pct_{i}.parquet')
-
+        ## 1.1
         i = 14
         factor_N_slope = self.momentum.N_slope(i)
         self.to_save(factor_N_slope, 'momentum', f'slope_{i}.parquet')
 
+        ## 1.2 
         factor_N_slope_abs = factor_N_slope.abs()
         self.to_save(factor_N_slope_abs, 'momentum', f'slope_{i}_abs.parquet')
         # print(factor_N_slope)
 
-        # # emotion
+
+        # 2. reversal
         #-----------------------------
-        # for i in [12, 24]:
-        #     psy_n_df = self.emotion.psy_n(i)
-        #     self.to_save(psy_n_df, 'emotion', f'psy_{i}.parquet')
+        ## 2.1
+        for i in [14, 28]:
+            factor_lags_pct_n_df = self.reversal.lags_pct_(i)
+            self.to_save(factor_lags_pct_n_df, 'reversal', f'lags_pct_{i}.parquet')
 
-        # upDownCount = self.emotion.upDownCount_n()
-        # self.to_save(upDownCount, 'emotion', f'upDownCount.parquet')
 
-        # volatility
-        # for i in [12, 24]:
-        #     hist_volatility_n_df = self.volatility.hist_volatility_n(i)
-        #     self.to_save(hist_volatility_n_df, 'volatility', f'hist_volatility_{i}.parquet')
-        
-        # for i in [10, 20]:
-        #     hist_vol_std_n_df = self.volatility.hist_vol_std_n(i)
-        #     self.to_save(hist_vol_std_n_df, 'volatility', f'hist_vol_std_n{i}.parquet')
+        # 3. emotion
+        #-----------------------------
+        ## 3.1
+        for i in [12, 24]:
+            psy_n_df = self.emotion.psy_n(i)
+            self.to_save(psy_n_df, 'emotion', f'psy_{i}.parquet')
+        ## 3.2
+        upDownCount = self.emotion.upDownCount_n()
+        self.to_save(upDownCount, 'emotion', f'upDownCount.parquet')
+
+
+        # 4. volatility
+        #-----------------------------
+        ## 4.1
+        for i in [12, 24]:
+            hist_volatility_n_df = self.volatility.hist_volatility_n(i)
+            self.to_save(hist_volatility_n_df, 'volatility', f'hist_volatility_{i}.parquet')
+        ## 4.2 
+        for i in [10, 20]:
+            hist_vol_std_n_df = self.volatility.hist_vol_std_n(i)
+            self.to_save(hist_vol_std_n_df, 'volatility', f'hist_vol_std_n{i}.parquet')
 
 
 if __name__ == '__main__':
