@@ -8,6 +8,8 @@
 '''
 
 import os
+from pathlib import Path
+
 import pandas as pd
 from src.factor_calc.momentum import MOMENTUM
 from src.factor_calc.emotion import EMOTION
@@ -18,7 +20,9 @@ from src.factor_calc.reversal import REVERSAL
 class FACTORS:
     
     def __init__(self, data_ohlcv):
-        self.save_path = r'.\data\factors'
+        BASE_DIR = Path(__file__).resolve().parent.parent.parent
+        DATA_DIR = BASE_DIR / "data"
+        self.save_path = DATA_DIR / "factors"
         self.momentum = MOMENTUM(data_ohlcv, is_real=True)
         self.reversal = REVERSAL(data_ohlcv, is_real=True)
         self.emotion = EMOTION(data_ohlcv, is_lags=False)
@@ -26,7 +30,8 @@ class FACTORS:
 
 
     def to_save(self, factor_df, factor_type, factor_name):
-        factor_df.to_parquet(os.path.join(self.save_path, rf'{factor_type}/{factor_name}'))
+        save_path = self.save_path / factor_type / factor_name
+        factor_df.to_parquet(save_path)
     
 
     def all_to_save(self):

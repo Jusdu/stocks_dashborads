@@ -1,6 +1,5 @@
 /.env
 /config.toml
 *.parquet
-.parquet
-.ipynb
-# .gitignore
+*.ipynb
+.gitignore

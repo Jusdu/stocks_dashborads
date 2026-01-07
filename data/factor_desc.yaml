@@ -13,10 +13,17 @@ reversal:
 
 momentum:
   slope_14:
-    name: "14日斜率一直你"
+    name: "14日斜率因子"
     category: "动量因子"
     # reference: "14日历史收益率"
     description: "计算过去14个交易日的收盘价线性回归斜率，用于描述价格的未来趋势"
+    formula: ""
+
+  slope_14_abs:
+    name: "14日斜率绝对值因子"
+    category: "动量因子"
+    reference: "slope_14"
+    description: "计算过去14个交易日的收盘价线性回归斜率绝对值，用于描述价格的未来趋势"
     formula: ""
 
 # value:

@@ -9,7 +9,7 @@ st.set_page_config(
 
 # 2. 页面定义
 page_home_index = st.Page("views/home_index.py", title="指数走势", icon="📈")
-page_single_factor_analysis = st.Page("views/single_factor_analysis_copy.py", title="单因子分析", icon="📊")
+page_single_factor_analysis = st.Page("views/single_factor_analysis.py", title="单因子分析", icon="📊")
 page_factors = st.Page("views/factors.py", title="多因子分析", icon="📊")
 
 
