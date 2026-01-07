@@ -1,0 +1,12 @@
+gm==3.0.178
+numpy==2.4.0
+tqdm==4.67.1
+auto_mix_prep==0.2.0
+matplotlib==3.10.8
+pandas==2.3.3
+pyecharts==2.0.8
+PyYAML==6.0.2
+PyYAML==6.0.3
+seaborn==0.13.2
+streamlit==1.45.1
+streamlit_echarts==0.4.0
